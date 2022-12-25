@@ -1,26 +1,82 @@
-# Use the latest 2.1 version of CircleCI pipeline process engine.
-# See: https://circleci.com/docs/2.0/configuration-reference
 version: 2.1
 
-# Define a job to be invoked later in a workflow.
-# See: https://circleci.com/docs/2.0/configuration-reference/#jobs
+orbs:
+  docker: circleci/docker@1.5.0
+
 jobs:
-  say-hello:
-    # Specify the execution environment. You can specify an image from Dockerhub or use one of our Convenience Images from CircleCI's Developer Hub.
-    # See: https://circleci.com/docs/2.0/configuration-reference/#docker-machine-macos-windows-executor
+  
+  build_docker_image:
+   executor: docker/docker
+#    auth:
+#          username: $CCI_USERNAME
+#          password: $CCI_PASSWORD
+   steps:
+      - setup_remote_docker
+      - checkout
+      
+#      - setup_remote_docker:
+#          docker_layer_caching: true
+#      - run:
+#          name: Setup Tag
+#	   command: echo "export TAG-0.1.$CIRCLE_SHA1" >> $BASH_ENV
+      - run:
+          name: Build docker image
+          command: docker run -e CI=true circlepy/nginx:latest 
+# run_integration_tests:
+#   docker:
+#     - image: circleci/node:13.10.1
+#   steps:
+#     - checkout
+  docker/publish:
     docker:
-      - image: cimg/base:stable
-    # Add steps to the job
-    # See: https://circleci.com/docs/2.0/configuration-reference/#steps
+      - image: circleci/golang:1.15
+        
     steps:
       - checkout
-      - run:
-          name: "Say hello"
-          command: "echo Hello, World!"
+      # ... steps for building/testing app ...
 
-# Invoke jobs via workflows
-# See: https://circleci.com/docs/2.0/configuration-reference/#workflows
+      - setup_remote_docker:
+          version: 19.03.13
+#          docker_layer_caching: true
+      # build the application image
+      - run: docker run -e CI=true circlepy/nginx:latest
+      # build and push Docker image
+      
+  
+  deploy_docker_appn:
+    docker:
+      - image: circleci/node:latest
+        
+   
+#      auth:
+#          username: $CCI_USERNAME
+#          password: $CCI_PASSWORD
+    steps:
+      - setup_remote_docker
+      - checkout
+#      - run: docker --version
+#      - setup_remote_docker:
+#          docker_layer_caching: true
+#      - run:
+#          name: Setup Tag
+#	   command: echo "export TAG-0.1.$CIRCLE_SHA1" >> $BASH_ENV
+      - run:
+          name: Pull/Deploy docker image from dockerhub
+          command: |
+                   docker run -e CI=true circlepy/nginx:latest
+                   echo "Successfully deployment done on Circleci node"
+                   
+#      - run:
+#          name: deploy built docker image
+#          command: docker run -p 3002:80 -d harishvarma44/ci-demo-docker:$CIRCLE_BUILD_NUM
+         
 workflows:
-  say-hello-workflow:
+  version: 2.1
+  build_test:
     jobs:
-      - say-hello
+       
+       - docker/publish
+       - build_docker_image
+          
+       - deploy_docker_appn
+          

@@ -1,82 +1,106 @@
-version: 2.1
-
-orbs:
-  docker: circleci/docker@1.5.0
-
+version: 2
 jobs:
-  
-  build_docker_image:
-   executor: docker/docker
-#    auth:
-#          username: $CCI_USERNAME
-#          password: $CCI_PASSWORD
-   steps:
-      - setup_remote_docker
-      - checkout
-      
-#      - setup_remote_docker:
-#          docker_layer_caching: true
-#      - run:
-#          name: Setup Tag
-#	   command: echo "export TAG-0.1.$CIRCLE_SHA1" >> $BASH_ENV
-      - run:
-          name: Build docker image
-          command: docker run -e CI=true circlepy/nginx:latest 
-# run_integration_tests:
-#   docker:
-#     - image: circleci/node:13.10.1
-#   steps:
-#     - checkout
-  docker/publish:
+  React:
+    resource_class: medium
     docker:
-      - image: circleci/golang:1.15
-        
+      - image: docker:18.06.3-ce-git
     steps:
       - checkout
-      # ... steps for building/testing app ...
-
-      - setup_remote_docker:
-          version: 19.03.13
-#          docker_layer_caching: true
-      # build the application image
-      - run: docker run -e CI=true circlepy/nginx:latest
-      # build and push Docker image
-      
-  
-  deploy_docker_appn:
-    docker:
-      - image: circleci/node:latest
-        
-   
-#      auth:
-#          username: $CCI_USERNAME
-#          password: $CCI_PASSWORD
-    steps:
       - setup_remote_docker
-      - checkout
-#      - run: docker --version
-#      - setup_remote_docker:
-#          docker_layer_caching: true
-#      - run:
-#          name: Setup Tag
-#	   command: echo "export TAG-0.1.$CIRCLE_SHA1" >> $BASH_ENV
       - run:
-          name: Pull/Deploy docker image from dockerhub
+          name: Build react application Docker image
           command: |
-                   docker run -e CI=true circlepy/nginx:latest
-                   echo "Successfully deployment done on Circleci node"
-                   
-#      - run:
-#          name: deploy built docker image
-#          command: docker run -p 3002:80 -d harishvarma44/ci-demo-docker:$CIRCLE_BUILD_NUM
-         
+            docker run -e CI=true circlepy/nginx:latest
+      - run:
+          name: Run react Tests
+          command: |
+            docker run -e CI=true circlepy/nginx:latest
+  Express:
+      resource_class: medium
+      docker:
+        - image: docker:18.06.3-ce-git
+      steps:
+        - checkout
+        - setup_remote_docker
+        - run:
+            name: Build Express application Docker image
+            command: |
+              docker run -e CI=true circlepy/nginx:latest
+        # - run:
+        #     name: Run Express Tests
+        #     command: |
+        #       docker run -e CI=true circlepy/nginx:latest
+
+
+  ReactMain:
+      resource_class: medium
+      docker:
+        - image: docker:18.06.3-ce-git
+      steps:
+        - checkout
+        - setup_remote_docker
+        - run:
+            name: Build react application Docker image
+            command: |
+              docker run -e CI=true circlepy/nginx:latest
+        - run:
+            name: Run react Tests
+            command: |
+              docker run -e CI=true circlepy/nginx:latest
+        - deploy:
+            name: Push application Docker image
+            command: |
+              TAG=0.1.$CIRCLE_BUILD_NUM
+              echo "$DOCKERHUB_PASSWORD" | docker login -u $DOCKERHUB_USER --password-stdin
+              docker run -e CI=true circlepy/nginx:latest
+  ExpressMain:
+      resource_class: medium
+      docker:
+        - image: docker:18.06.3-ce-git
+      steps:
+        - checkout
+        - setup_remote_docker
+        - run:
+            name: Build Express application Docker image
+            command: |
+              docker run -e CI=true circlepy/nginx:latest
+        # - run:
+        #     name: Run Express Tests
+        #     command: |
+        #       docker run -e CI=true circlepy/nginx:latest 
+        - deploy:
+            name: Push Express application Docker image
+            command: |
+              TAG=0.1.$CIRCLE_BUILD_NUM
+              echo "$DOCKERHUB_PASSWORD" | docker login -u $DOCKERHUB_USER --password-stdin
+              docker run -e CI=true circlepy/nginx:latest
 workflows:
-  version: 2.1
-  
+  version: 2
+  build_test:
     jobs:
-       
-       - docker/publish
-       - build_docker_image
-          
-       - deploy_docker_appn
-          
+      - React:
+          filters:
+            branches:
+              ignore:
+                - main
+                - master
+      - Express:
+          filters:
+            branches:
+              ignore:
+                - main
+                - master
+  build_test_Deploy:
+    jobs:
+      - ReactMain:
+          filters:
+            branches:
+              only:
+                - main
+                - master
+      - ExpressMain:
+          filters:
+            branches:
+              only:
+                - main
+                - master

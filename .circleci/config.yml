@@ -72,7 +72,7 @@ jobs:
          
 workflows:
   version: 2.1
-  build_test:
+  
     jobs:
        
        - docker/publish
